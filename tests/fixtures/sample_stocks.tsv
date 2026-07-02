@@ -1,0 +1,7 @@
+FBst	collection_short_name	stock_type_cv	species	FB_genotype	description	stock_number
+FBst0000001	Bloomington	living stock ; FBsv:0000002	Dmel	w[1118]; P{y[+t7.7] w[+mC]=UAS-GFP.nls}attP2	w[1118]; P{y[+t7.7] w[+mC]=UAS-GFP.nls}attP2	1234
+FBst0000002	Bloomington	living stock ; FBsv:0000002	Dmel	Sxl[f1]/FM7c	Sxl[f1]/FM7c	5678
+FBst0041157	Bloomington	living stock ; FBsv:0000002	Dmel	w[1118]; P{y[+t7.7] w[+mC]=UAS-LUC-mir-932.T}attP2	w[1118]; P{y[+t7.7] w[+mC]=UAS-LUC-mir-932.T}attP2	41157
+FBst0100200	Kyoto	living stock ; FBsv:0000002	Dmel	y[1] w[*]; P{GawB}elav[C155]	y[1] w[*]; P{GawB}elav[C155]	100200
+FBst0300400	Vienna	living stock ; FBsv:0000002	Dmel	P{KK}Sxl[GD]	P{KK}v27251	v27251
+FBst0500600	Kyoto	living stock ; FBsv:0000002	Dmel		w[*]; P{UAS-Dcr-2.D}	200300

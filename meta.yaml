@@ -1,0 +1,57 @@
+# BioContextAI Registry metadata.
+# Submit by forking github.com/biocontext-ai/registry, dropping this file in
+# servers/, and opening a PR. You can also generate/validate it with the online
+# editor at https://biocontext.ai/registry/editor.
+name: drosophila-stocks-mcp
+description: >-
+  Query Drosophila melanogaster stock centers (BDSC, Kyoto/DGRC, VDRC, KDRC,
+  NIG-FLY, FlyORF, THFC) by genotype or gene. Backed by FlyBase's freely
+  redistributable bulk stock data plus its REST API for gene resolution, and
+  generates deep links into each center's ordering system.
+homepage: https://github.com/neurorishika/drosophila-stocks-mcp
+repository: https://github.com/neurorishika/drosophila-stocks-mcp
+license: MIT
+maintainer:
+  name: Rishika Mohanta
+  email: neurorishika@gmail.com
+
+# Biomedical focus: Drosophila genetics resource discovery for wet-lab research.
+categories:
+  - genetics
+  - model-organisms
+  - research-resources
+
+# Free for academic use (FlyBase + stock-center data).
+free_academic_access: true
+
+transports:
+  - stdio
+  - streamable-http
+
+install:
+  pypi: drosophila-stocks-mcp
+  mcp_config:
+    command: uvx
+    args:
+      - drosophila-stocks-mcp@latest
+    env:
+      UV_PYTHON: "3.12"
+
+tools:
+  - name: search_stocks_by_genotype
+    description: Substring/token search over stock genotype strings, optional center filter.
+  - name: search_stocks_by_gene
+    description: Resolve a gene (symbol/synonym/FBgn) and find stocks mentioning it.
+  - name: get_stock
+    description: Look up one stock by FBst ID or CENTER:NUMBER.
+  - name: list_stock_centers
+    description: List supported stock centers with codes and homepages.
+  - name: resolve_gene
+    description: Resolve a gene symbol/synonym/ID to a FlyBase gene record.
+  - name: get_dataset_info
+    description: Report the loaded FlyBase release, record count, and cache age.
+
+data_sources:
+  - name: FlyBase
+    url: https://flybase.org
+    citation: https://flybase.github.io/

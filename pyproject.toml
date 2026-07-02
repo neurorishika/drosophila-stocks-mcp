@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "drosophila-stocks-mcp"
+version = "0.1.0"
+description = "MCP server to query Drosophila stock centers (BDSC, Kyoto, VDRC, KDRC, NIG, FlyORF, THFC) via FlyBase data."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Rishika Mohanta", email = "neurorishika@gmail.com" }]
+keywords = ["mcp", "drosophila", "flybase", "bioinformatics", "genetics", "stocks"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "mcp>=1.2.0",
+    "httpx[http2]>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pre-commit>=3.7"]
+
+[project.scripts]
+drosophila-stocks-mcp = "drosophila_stocks_mcp.server:main"
+
+[project.urls]
+Homepage = "https://biocontext.ai/registry"
+Source = "https://github.com/neurorishika/drosophila-stocks-mcp"
+Issues = "https://github.com/neurorishika/drosophila-stocks-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/drosophila_stocks_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: hits real FlyBase/stock-center network (deselected by default)"]
+addopts = "-m 'not live'"
