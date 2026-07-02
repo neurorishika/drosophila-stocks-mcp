@@ -27,7 +27,9 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 mcp = FastMCP(
     "drosophila-stocks",
     host=os.environ.get("MCP_HOST", "127.0.0.1"),
-    port=int(os.environ.get("MCP_PORT", "8000")),
+    # MCP_PORT takes precedence; PORT is the convention most container platforms
+    # (Cloud Run, Koyeb, Render, ...) use to tell the app which port to bind.
+    port=int(os.environ.get("MCP_PORT") or os.environ.get("PORT", "8000")),
 )
 _client = FlyBaseClient()
 

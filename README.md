@@ -49,14 +49,28 @@ Settings → Developer → Edit Config, then add:
 }
 ```
 
-### Remote / HTTP hosting
+### Remote / HTTP hosting (for claude.ai custom connectors)
+
+claude.ai's web app only accepts **remote** MCP servers over HTTPS — it can't
+launch a local `stdio` process the way Claude Desktop/Code can. To use this
+server there, run it with the `streamable-http` transport somewhere publicly
+reachable:
 
 ```bash
-MCP_TRANSPORT=streamable-http uvx drosophila-stocks-mcp
+MCP_HOST=0.0.0.0 MCP_TRANSPORT=streamable-http uvx drosophila-stocks-mcp
 ```
 
-Then add it in claude.ai as a custom connector (Settings → Connectors → Add
-custom connector) using the server's public HTTPS URL.
+A `Dockerfile` is included for deploying to any container platform (Google
+Cloud Run, Koyeb, Render, a VPS, ...). It listens on `$PORT` if set (the
+convention most of those platforms use), or `$MCP_PORT`/`8000` otherwise:
+
+```bash
+docker build -t drosophila-stocks-mcp .
+docker run -p 8000:8000 -e PORT=8000 drosophila-stocks-mcp
+```
+
+Once it's live at a public HTTPS URL (e.g. `https://your-host/mcp`), add it in
+claude.ai as a custom connector: **Settings → Connectors → Add custom connector**.
 
 ## Configuration
 
