@@ -100,9 +100,18 @@ release's directory listing rather than guessed.
   for exhaustive curation. Precise allele→gene→stock linkage via the Chado schema
   is a planned enhancement.
 - **Availability/price/shipping** are *not* in FlyBase. The `order_url` deep-links
-  you to the center's own system to check and order. VDRC's link is a storefront
-  search (not a direct product page) since its stock numbers aren't Magento
-  product IDs; KDRC, NIG-FLY, and NDSSC fall back to the center homepage.
+  you to the center's own system to check and order. Every deep-link template was
+  verified against the live site's actual rendered content (not just a non-404
+  status — see `tests/test_live.py`): BDSC, KYOTO, VDRC, and FLYORF all resolve
+  to a real, correctly-parameterized search for the specific stock. VDRC's link
+  is a storefront search (not a direct product page, since its stock numbers
+  aren't catalog product IDs) that requires stripping the "v" prefix FlyBase
+  stores; FlyORF's link goes through its separate KonaKart webshop (not
+  flyorf.ch itself, which has no search), and only finds stocks that webshop's
+  own catalog has indexed — some FlyBase-listed FlyORF stocks aren't in it,
+  through no fault of the query. KDRC, NIG-FLY, and NDSSC have no direct-stock
+  deep link and fall back to the center homepage (KDRC's is `http://`, not
+  `https://` — its HTTPS vhost is misconfigured and serves a server error).
 
 ## Development
 

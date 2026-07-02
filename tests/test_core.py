@@ -70,10 +70,18 @@ def test_order_url_builds_with_number():
 
 def test_order_url_vdrc_uses_storefront_search():
     # VDRC stock numbers ("v10004") are not Magento product IDs, so the deep link
-    # is a storefront search rather than a direct product-view URL.
+    # is a storefront search rather than a direct product-view URL. The search
+    # only matches the bare numeric ID (verified live: "v10004" finds nothing,
+    # "10004" finds the stock), so the leading "v" must be stripped.
     vdrc = STOCK_CENTERS["VDRC"]
     url = vdrc.order_url("v27251")
-    assert "catalogsearch/result" in url and "v27251" in url
+    assert "catalogsearch/result" in url and "q=27251" in url and "v27251" not in url
+
+
+def test_order_url_vdrc_strips_only_leading_v():
+    vdrc = STOCK_CENTERS["VDRC"]
+    # A number that happens to contain "v" elsewhere must not be mangled.
+    assert "q=123v45" in vdrc.order_url("v123v45")
 
 
 def test_order_url_falls_back_to_homepage():

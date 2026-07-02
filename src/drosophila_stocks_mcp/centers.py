@@ -29,12 +29,20 @@ class StockCenter:
     #: Template for a deep link to a specific stock, ``{num}`` -> stock number.
     #: ``None`` means we can only link to the center's search/home page.
     order_url_template: Optional[str] = None
+    #: Leading characters to strip from the stored stock number before it's
+    #: substituted into ``order_url_template`` -- e.g. VDRC's own catalog search
+    #: only matches on the bare numeric ID, not the "v" prefix FlyBase stores it
+    #: with (verified live: "v10004" finds nothing, "10004" finds the stock).
+    order_url_strip_prefix: str = ""
 
     def order_url(self, stock_number: str | int | None) -> str:
         """Best-effort link to order / view ``stock_number`` at this center."""
         if stock_number is None or self.order_url_template is None:
             return self.homepage
-        return self.order_url_template.format(num=quote(str(stock_number)))
+        num = str(stock_number)
+        if self.order_url_strip_prefix and num.lower().startswith(self.order_url_strip_prefix.lower()):
+            num = num[len(self.order_url_strip_prefix) :]
+        return self.order_url_template.format(num=quote(num))
 
 
 # Canonical registry. Codes are stable; treat them as the public identifiers.
@@ -51,8 +59,15 @@ STOCK_CENTERS: dict[str, StockCenter] = {
         name="Kyoto Stock Center (DGRC, Kyoto Institute of Technology)",
         homepage="https://kyotofly.kit.jp/cgi-bin/stocks/index.cgi",
         aliases=("kyoto", "dgrc kyoto", "kit", "dgrc"),
+        # The site's own search form posts to search_res_list.cgi with a DG_NUM
+        # param (verified live via the real <form> markup); DB_NUM is a *different*
+        # thing entirely -- it's the 1-based row index *within* a result set, used
+        # only by the detail-page link a result row points to. The old
+        # "search_res_det.cgi?DB_NUM={num}" template treated the stock number as
+        # that row index, which 404s/errors ("Error:GetDBName") for any stock
+        # number that isn't also a tiny row-position number.
         order_url_template=(
-            "https://kyotofly.kit.jp/cgi-bin/stocks/search_res_det.cgi?DB_NUM={num}"
+            "https://kyotofly.kit.jp/cgi-bin/stocks/search_res_list.cgi?DG_NUM={num}"
         ),
     ),
     "VDRC": StockCenter(
@@ -62,13 +77,21 @@ STOCK_CENTERS: dict[str, StockCenter] = {
         aliases=("vdrc", "vienna"),
         # VDRC stock numbers (e.g. "v10004") are not Magento catalog product IDs;
         # there is no direct product-id deep link, so we link into their storefront
-        # search instead, which does resolve to the right stock.
+        # search instead. The search only matches the bare numeric ID, though --
+        # searching "v10004" returns zero results (verified live: "We could not
+        # find anything for v10004"), while "10004" returns the real stock as the
+        # first hit -- so the "v" must be stripped before searching.
         order_url_template="https://shop.vbc.ac.at/vdrc_store/catalogsearch/result/?q={num}",
+        order_url_strip_prefix="v",
     ),
     "KDRC": StockCenter(
         code="KDRC",
         name="Korea Drosophila Resource Center",
-        homepage="https://kdrc.kr/index.php",
+        # The HTTPS vhost is broken -- it serves an invalid cert and, once ignored,
+        # a raw Korean server error ("HOME 디렉토리가 존재하지 않습니다": the HOME
+        # directory doesn't exist, delete the DB and reinstall) instead of the real
+        # site. Plain HTTP serves the actual working site (verified live).
+        homepage="http://kdrc.kr/index.php",
         aliases=("kdrc", "korea"),
         order_url_template=None,
     ),
@@ -84,7 +107,18 @@ STOCK_CENTERS: dict[str, StockCenter] = {
         name="FlyORF (Zurich ORFeome Project)",
         homepage="https://flyorf.ch/",
         aliases=("flyorf", "orf"),
-        order_url_template="https://flyorf.ch/index.php/?s={num}",
+        # flyorf.ch itself is a content-only Joomla site with no search at all; the
+        # real catalog lives on a separate KonaKart webshop under /imlskonakart/,
+        # reached via a "To the shop" link the old "?s={num}" guess never found.
+        # KonaKart's quick-search form posts to QuickSearch.do with a searchText
+        # param, and (verified live) needs the "x=0&y=0" pair a browser's <input
+        # type="image"> search-button submit normally adds -- omitting them
+        # returns the shop's home page instead of running the search. Even
+        # correctly formed, this only finds stocks the shop's own index actually
+        # has cataloged; some FlyBase-listed FlyORF stock numbers return zero
+        # results here through no fault of the query (an external data gap, not
+        # fixable from this side).
+        order_url_template="https://flyorf.ch/imlskonakart/QuickSearch.do?searchText={num}&x=0&y=0",
     ),
     "NDSSC": StockCenter(
         code="NDSSC",

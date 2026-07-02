@@ -78,17 +78,53 @@ def test_search_by_gene_finds_stocks(live_client):
     assert all("sxl" in h.genotype.lower() for h in hits)
 
 
+def _http_get(url: str) -> httpx.Response:
+    headers = {
+        "User-Agent": _BROWSER_UA,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    return httpx.get(url, follow_redirects=True, headers=headers, timeout=20)
+
+
+# A non-404 status is a weak signal on its own: several of these deep links used
+# to 200 while silently landing on a generic search/error page for the *wrong*
+# stock (verified live -- see CLAUDE.md's order-URL section for what was broken).
+# Where the site server-renders results (KYOTO/VDRC/FLYORF), assert the actual
+# stock number shows up and no "not found" marker does. BDSC's results load via
+# client-side JS (a Kendo grid) that a plain HTTP GET never executes, so its raw
+# HTML is nearly identical for a real vs. bogus stock number -- this was verified
+# correct with a real headless browser during development, but isn't asserted
+# here since that would pull a browser binary into the test suite for one center.
 @pytest.mark.parametrize(
-    "code",
-    ["BDSC", "KYOTO", "VDRC", "FLYORF"],
+    "code,not_found_marker",
+    [
+        ("KYOTO", "error:getdbname"),
+        ("VDRC", "we could not find"),
+        ("FLYORF", "displaying 0 to 0"),
+    ],
 )
-def test_order_url_resolves_for_known_stock(live_client, code):
+def test_order_url_resolves_to_the_actual_stock(live_client, code, not_found_marker):
     rec = next((r for r in live_client.records if r.center_code == code), None)
     assert rec is not None, f"no live sample stock found for {code}"
     center = STOCK_CENTERS[code]
     url = center.order_url(rec.stock_number)
-    resp = httpx.get(url, follow_redirects=True, headers={"User-Agent": _BROWSER_UA}, timeout=20)
+    resp = _http_get(url)
     assert resp.status_code != 404, f"{code} order URL 404'd: {url}"
+    body_low = resp.text.lower()
+    assert not_found_marker not in body_low, f"{code} order URL landed on a not-found page: {url}"
+    bare_number = rec.stock_number.lstrip("vV") if code == "VDRC" else rec.stock_number
+    assert bare_number.lower() in body_low, f"{code} order URL didn't show stock {bare_number}: {url}"
+
+
+def test_order_url_bdsc_query_is_echoed(live_client):
+    rec = next((r for r in live_client.records if r.center_code == "BDSC"), None)
+    assert rec is not None, "no live sample stock found for BDSC"
+    center = STOCK_CENTERS["BDSC"]
+    url = center.order_url(rec.stock_number)
+    resp = _http_get(url)
+    assert resp.status_code != 404, f"BDSC order URL 404'd: {url}"
+    assert rec.stock_number in resp.text, f"BDSC order URL didn't echo stock {rec.stock_number}: {url}"
 
 
 def test_get_dataset_info_reports_download_source():

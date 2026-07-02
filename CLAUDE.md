@@ -100,8 +100,9 @@ to match the **actual response JSON shapes**, and populate `symbol`, `name`, and
 stay under it; add a small delay if you batch.
 
 ### 5. Order-URL templates — `centers.py::STOCK_CENTERS[*].order_url_template`
-Each center's deep-link template is a guess. **Verify each resolves to the right
-stock (HTTP 200, correct page)**, especially:
+**Resolved** — see the "Definition of done" checklist below for what was actually
+wrong and how it was fixed (all four working templates were broken in ways HTTP
+status alone didn't reveal). Original guesses, kept for context:
 - **VDRC** (currently a Magento `product/view/id/{num}` path) — almost certainly
   wrong; VDRC uses catalog/transformant IDs, not Magento product IDs. Find the
   real query pattern.
@@ -203,7 +204,17 @@ construct) in the README. Consider adding the Chado allele→gene→stock path l
 - [ ] Bulk file URL/name verified; release resolution populates `release_hint`.
 - [ ] Column mapping + `parse_dbxref` verified on real rows; `None` center rate low.
 - [ ] Gene API endpoints verified against swagger; `symbol`/`name`/`synonyms` filled.
-- [ ] All order-URL templates verified to resolve (VDRC fixed).
+- [x] All order-URL templates verified to actually resolve to the right stock, not
+      just return non-404 (checked rendered page content with a real headless
+      browser, not just HTTP status). Fixed: KYOTO (`DB_NUM` was the wrong param
+      entirely -- the real form uses `DG_NUM`; `DB_NUM` is a result-row index, not
+      a stock number), VDRC (its search only matches the bare numeric ID, so the
+      "v" prefix FlyBase stores must be stripped before querying), FlyORF (the
+      `?s={num}` guess hit a contentonly Joomla page with no search at all; the
+      real catalog is a separate KonaKart shop under `/imlskonakart/`, whose quick
+      search needs `searchText` plus the `x=0&y=0` an image-button submit adds).
+      Also found KDRC's `https://` homepage is broken (bad cert, and once
+      ignored, serves a raw server error) -- switched to `http://`, which works.
 - [ ] Cache download/refresh/stale-fallback paths tested.
 - [ ] MCP stdio + streamable-http both list 6 tools; Inspector smoke test done.
 - [ ] Edge/robustness tests pass; parse performance acceptable at full scale.
