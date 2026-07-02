@@ -5,3 +5,6 @@ FBst0041157	Bloomington	living stock ; FBsv:0000002	Dmel	w[1118]; P{y[+t7.7] w[+
 FBst0100200	Kyoto	living stock ; FBsv:0000002	Dmel	y[1] w[*]; P{GawB}elav[C155]	y[1] w[*]; P{GawB}elav[C155]	100200
 FBst0300400	Vienna	living stock ; FBsv:0000002	Dmel	P{KK}Sxl[GD]	P{KK}v27251	v27251
 FBst0500600	Kyoto	living stock ; FBsv:0000002	Dmel		w[*]; P{UAS-Dcr-2.D}	200300
+FBst0605687	Bloomington	living stock ; FBsv:0000002	Dmel	w[1118]; P{y[+t7.7] w[+mC]=10XUAS-IVS-Syn21-Chrimson-tdT-3.1}attP18	w[1118]; P{y[+t7.7] w[+mC]=10XUAS-IVS-Syn21-Chrimson-tdT-3.1}attP18	605687
+FBst0700800	Bloomington	living stock ; FBsv:0000002	Dmel	y[1] w[*]; Rim[MB07541]	y[1] w[*]; Rim[MB07541]	700800
+FBst0700900	Bloomington	living stock ; FBsv:0000002	Dmel	y[1] w[*]; Son[CR71080-KO-kG4]	y[1] w[*]; Son[CR71080-KO-kG4]	700900

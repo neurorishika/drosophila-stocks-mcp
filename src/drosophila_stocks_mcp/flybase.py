@@ -44,6 +44,92 @@ logger = logging.getLogger("drosophila_stocks_mcp.flybase")
 
 FBST_RE = re.compile(r"FBst\d{7,}")
 FBGN_RE = re.compile(r"FBgn\d{7,}")
+_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
+
+# FlyBase construct names routinely truncate reporter/effector names inconsistently
+# across releases -- sometimes dropping a trailing fragment ("tdTomato" -> "tdT"),
+# sometimes a leading modifier tag ("CsChrimson" -> "Chrimson") -- and there is no
+# fixed list of abbreviations to maintain. Instead of a lookup table, a query term
+# that fails an exact substring match falls back to bidirectional matching against
+# genotype tokens, using two different rules depending on which end was dropped:
+#
+# - Trailing truncation (arbitrary length, no further restriction): the longer
+#   form's characters simply start with the shorter form's, e.g. "tdTomato" ->
+#   "tdT", "mCherry" -> "mCh". Matching this many characters from the very start
+#   of a specific construct name by pure coincidence is rare, so no extra guard
+#   is needed here.
+# - Leading truncation (a dropped modifier tag, e.g. "CsChrimson" -> "Chrimson"):
+#   allowed *only* when the drop point lands on a genuine camelCase/acronym
+#   segment boundary of the longer form's original-case spelling -- see
+#   ``_case_segments``/``_segment_boundary_suffixes`` -- rather than on any
+#   arbitrary character count. This is what makes the rule general: it accepts
+#   modifier tags of any length ("Cs", "myr", "GtACR1"'s "Gt", ...) as long as
+#   they're demarcated by a case transition, which is the near-universal
+#   convention for these names, while rejecting coincidental substrings that
+#   merely happen to fall at the end of a longer word.
+#
+# The leading-truncation rule is what rejects two real false positives found on
+# live data: "rim" (the gene *Rim*) is embedded inside "cschrimson" ("ch-RIM-son")
+# without being a prefix or suffix of it at all, so it's excluded by the
+# prefix-or-suffix requirement up front; "son" (the gene *Son*) genuinely IS a
+# suffix of "cschrimson" ("cschrim-SON"), but that drop point isn't a segment
+# boundary of "CsChrimson" (whose only segments are "Cs"+"Chrimson"), so it's
+# excluded by the boundary check.
+#
+# Terms shorter than the floor below are excluded from the fuzzy fallback (exact
+# substring matching still applies to them) since short terms match too many
+# unrelated tokens.
+_MIN_FUZZY_TERM_LEN = 3
+
+# Splits a single alnum token into camelCase/acronym/digit segments on the
+# token's ORIGINAL case, e.g. "CsChrimson" -> ["Cs", "Chrimson"], "tdTomato" ->
+# ["td", "Tomato"], "GtACR1" -> ["Gt", "ACR", "1"], "EGFP" -> ["EGFP"] (a single
+# acronym run has no internal transition, so it doesn't split).
+_CASE_SEGMENT_RE = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
+
+
+def _tokenize(text: str) -> list[str]:
+    return _TOKEN_RE.findall(text.lower())
+
+
+def _tokenize_cased(text: str) -> list[str]:
+    """Like :func:`_tokenize` but preserves original case, for segmentation."""
+    return _TOKEN_RE.findall(text)
+
+
+def _case_segments(word: str) -> list[str]:
+    return _CASE_SEGMENT_RE.findall(word) or [word]
+
+
+def _segment_boundary_suffixes(word: str) -> set[str]:
+    """Lower-cased trailing segment-concatenations of a cased token.
+
+    These are the only "leading truncations" of ``word`` considered legitimate:
+    dropping a whole number of its camelCase/acronym segments off the front.
+    """
+    segments = _case_segments(word)
+    return {"".join(segments[i:]).lower() for i in range(len(segments))}
+
+
+def _fuzzy_match(a: str, b: str) -> bool:
+    """True if cased tokens ``a``/``b`` are the same modulo FlyBase's inconsistent
+    reporter/effector truncation. See the module-level comment above for the
+    trailing-vs-leading truncation rules this applies.
+    """
+    a_low, b_low = a.lower(), b.lower()
+    if len(a_low) < _MIN_FUZZY_TERM_LEN or len(b_low) < _MIN_FUZZY_TERM_LEN:
+        return False
+    if a_low == b_low:
+        return True
+    if len(a_low) <= len(b_low):
+        shorter_low, longer_low, longer_orig = a_low, b_low, b
+    else:
+        shorter_low, longer_low, longer_orig = b_low, a_low, a
+    if longer_low.startswith(shorter_low):
+        return True
+    if longer_low.endswith(shorter_low):
+        return shorter_low in _segment_boundary_suffixes(longer_orig)
+    return False
 
 # Where FlyBase publishes releases. The ``current`` alias always points at the
 # latest release's directory, but the files inside it are release-stamped
@@ -317,22 +403,86 @@ class FlyBaseClient:
     def search_by_genotype(
         self, query: str, *, center: Optional[str] = None, limit: int = 25
     ) -> list[StockRecord]:
-        """Token-AND substring search over genotype+description, optional center filter."""
+        """Token-AND search over genotype+description, optional center filter.
+
+        Each whitespace-separated query term must either appear as a substring, or
+        (for terms of at least ``_MIN_FUZZY_TERM_LEN`` chars) share a substring with
+        a genotype token in either direction -- this catches FlyBase's inconsistent
+        abbreviations (e.g. "tdTomato" matches a genotype containing only "tdT", and
+        "CsChrimson" matches one containing only "Chrimson") without a maintained
+        synonym table. See :func:`_fuzzy_match`.
+        """
         self.ensure_loaded()
-        terms = [t.lower() for t in re.split(r"\s+", query.strip()) if t]
+        raw_terms = [t for t in re.split(r"\s+", query.strip()) if t]
         want_center = center.upper() if center else None
         hits: list[StockRecord] = []
         for rec in self._records:
             if want_center and rec.center_code != want_center:
                 continue
-            g = rec.genotype.lower()
-            if rec.description:
-                g = g + " " + rec.description.lower()
-            if all(t in g for t in terms):
+            g_orig = rec.genotype + (" " + rec.description if rec.description else "")
+            if self._term_match(raw_terms, g_orig):
                 hits.append(rec)
                 if len(hits) >= limit:
                     break
         return hits
+
+    @staticmethod
+    def _term_match(raw_terms: list[str], g_orig: str) -> bool:
+        g_low = g_orig.lower()
+        tokens_orig: Optional[list[str]] = None
+        for t in raw_terms:
+            t_low = t.lower()
+            if t_low in g_low:
+                continue
+            # A compound term (e.g. "UAS-GFP") must not fuzzy-match on just one of
+            # its parts ("uas") -- decompose into sub-tokens and require each one,
+            # exactly or fuzzily, so "UAS-GFP" still needs both "uas" and "gfp".
+            # Sub-tokens are taken cased (not lower()'d) since _fuzzy_match needs
+            # the original case to find camelCase segment boundaries.
+            if tokens_orig is None:
+                tokens_orig = _tokenize_cased(g_orig)
+            for sub in _tokenize_cased(t):
+                if sub.lower() in g_low:
+                    continue
+                if len(sub) < _MIN_FUZZY_TERM_LEN or not any(
+                    _fuzzy_match(sub, tok) for tok in tokens_orig
+                ):
+                    return False
+        return True
+
+    def suggest_alternatives(
+        self, query: str, *, center: Optional[str] = None, limit: int = 5
+    ) -> list[str]:
+        """Find genotype tokens that fuzzily overlap a query term, for hinting.
+
+        Meant for the zero-result case: surfaces real dataset tokens (e.g. "tdt" for
+        a query of "tdtomato") that an LLM caller can recognize as an abbreviation of
+        what it searched for and retry with, instead of a maintained alias table.
+        """
+        self.ensure_loaded()
+        raw_terms = [t for t in re.split(r"\s+", query.strip()) if t]
+        cased_terms = sorted(
+            {sub for t in raw_terms for sub in _tokenize_cased(t) if len(sub) >= _MIN_FUZZY_TERM_LEN}
+        )
+        if not cased_terms:
+            return []
+        want_center = center.upper() if center else None
+        seen_low: set[str] = {t.lower() for t in cased_terms}
+        suggestions: list[str] = []
+        for rec in self._records:
+            if want_center and rec.center_code != want_center:
+                continue
+            g_orig = rec.genotype + (" " + rec.description if rec.description else "")
+            for tok_orig in _tokenize_cased(g_orig):
+                tok_low = tok_orig.lower()
+                if tok_low in seen_low:
+                    continue
+                if any(_fuzzy_match(t, tok_orig) for t in cased_terms):
+                    seen_low.add(tok_low)
+                    suggestions.append(tok_low)
+                    if len(suggestions) >= limit:
+                        return suggestions
+        return suggestions
 
     def get_stock(self, identifier: str) -> Optional[StockRecord]:
         """Look up by FBst id ('FBst0041157') or 'CENTER:NUMBER' ('BDSC:1234')."""

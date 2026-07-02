@@ -15,7 +15,12 @@ from drosophila_stocks_mcp.centers import (
     resolve_center_code,
 )
 from drosophila_stocks_mcp.models import StockRecord, parse_dbxref
-from drosophila_stocks_mcp.flybase import FlyBaseClient, _index_columns, _looks_like_header
+from drosophila_stocks_mcp.flybase import (
+    FlyBaseClient,
+    _index_columns,
+    _looks_like_header,
+    _fuzzy_match,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_stocks.tsv"
 
@@ -127,9 +132,9 @@ def test_index_columns_matches_real_header():
 
 # --------------------------------------------------------------- loading
 def test_loads_all_records(client):
-    assert len(client.records) == 6
+    assert len(client.records) == 9
     info = client.dataset_info()
-    assert info["record_count"] == 6
+    assert info["record_count"] == 9
     # The real bulk file has no "#"-comment release marker; a locally-supplied
     # fixture without one should report release_hint=None rather than raise.
     assert info["release_hint"] is None
@@ -184,6 +189,111 @@ def test_search_by_genotype_center_filter(client):
 def test_search_by_genotype_limit(client):
     hits = client.search_by_genotype("w", limit=2)
     assert len(hits) <= 2
+
+
+# --------------------------------------------------- fuzzy abbreviation fallback
+# _fuzzy_match needs the ORIGINAL case of both arguments -- that's how it finds
+# camelCase/acronym segment boundaries -- so these tests deliberately pass cased
+# strings (e.g. "CsChrimson"), not pre-lowered ones.
+def test_fuzzy_match_bidirectional_trailing_truncation():
+    # "tdT" is an arbitrary-length trailing truncation of "tdTomato" -- allowed
+    # unconditionally, regardless of case/segment structure.
+    assert _fuzzy_match("tdTomato", "tdT")
+    assert _fuzzy_match("tdT", "tdTomato")
+
+
+def test_fuzzy_match_leading_truncation_at_segment_boundary():
+    # "Chrimson" drops the "Cs" modifier tag off the front of "CsChrimson" -- the
+    # drop point is a genuine camelCase segment boundary ("Cs" + "Chrimson"), so
+    # this is allowed regardless of how long the dropped tag is.
+    assert _fuzzy_match("CsChrimson", "Chrimson")
+    assert _fuzzy_match("Chrimson", "CsChrimson")
+
+
+def test_fuzzy_match_respects_min_length():
+    # "td" is under the fuzzy-term length floor, so it must not loosely match.
+    assert not _fuzzy_match("td", "tdT")
+
+
+def test_fuzzy_match_rejects_embedded_non_prefix_suffix():
+    # "Rim" (the gene *Rim*) is embedded inside "CsChrimson" ("Ch-RIM-son") but is
+    # neither a prefix nor a suffix of it, so it must not fuzzy-match -- otherwise
+    # searching "CsChrimson" would spuriously return unrelated Rim-carrying stocks.
+    assert not _fuzzy_match("CsChrimson", "Rim")
+    assert not _fuzzy_match("Rim", "CsChrimson")
+
+
+def test_fuzzy_match_rejects_leading_truncation_off_segment_boundary():
+    # "Son" (the gene *Son*) IS a genuine suffix of "CsChrimson" ("CsChrim-SON"),
+    # but that drop point isn't a segment boundary of "CsChrimson" (whose only
+    # segments are "Cs"+"Chrimson"), so this must not fuzzy-match even though a
+    # naive prefix-or-suffix check alone would allow it.
+    assert not _fuzzy_match("CsChrimson", "Son")
+    assert not _fuzzy_match("Son", "CsChrimson")
+
+
+def test_fuzzy_match_handles_arbitrary_length_segment_tags():
+    # The segment-boundary rule generalizes to tags of any length, not just
+    # 2-character ones like "Cs" -- "Gt" (2 chars) and "myr" (3 chars) both sit at
+    # real segment boundaries and should be droppable just the same.
+    assert _fuzzy_match("GtACR1", "ACR1")
+    assert _fuzzy_match("myrGFP", "GFP")
+
+
+def test_search_by_genotype_matches_abbreviated_reporter(client):
+    # Real genotype only spells the reporter "tdT", not the full "tdTomato".
+    hits = client.search_by_genotype("Chrimson tdTomato")
+    assert {h.fbst_id for h in hits} == {"FBst0605687"}
+
+
+def test_search_by_genotype_matches_embedded_abbreviation(client):
+    # Real genotype only spells the effector "Chrimson", not the full "CsChrimson".
+    # Stocks carrying the unrelated genes "Rim" (embedded substring, not a
+    # prefix/suffix) and "Son" (a genuine suffix, but behind too long a dropped
+    # prefix to be a plausible modifier tag) must not show up as false hits.
+    hits = client.search_by_genotype("CsChrimson")
+    assert {h.fbst_id for h in hits} == {"FBst0605687"}
+
+
+def test_search_by_genotype_fuzzy_does_not_relax_other_terms(client):
+    # A genuinely absent term still yields zero hits even with a fuzzy-matchable term.
+    hits = client.search_by_genotype("tdTomato Foobar123zzz")
+    assert hits == []
+
+
+def test_suggest_alternatives_finds_abbreviated_token(client):
+    suggestions = client.suggest_alternatives("tdTomato")
+    assert "tdt" in suggestions
+
+
+def test_suggest_alternatives_finds_embedded_token(client):
+    suggestions = client.suggest_alternatives("CsChrimson")
+    assert "chrimson" in suggestions
+
+
+def test_suggest_alternatives_empty_when_nothing_similar(client):
+    assert client.suggest_alternatives("Zzzznotarealtoken12345") == []
+
+
+def test_search_tool_returns_no_match_hint(monkeypatch):
+    from drosophila_stocks_mcp import server
+
+    monkeypatch.setattr(server, "_client", FlyBaseClient())
+    monkeypatch.setenv("FLYBASE_STOCKS_FILE", str(FIXTURE))
+    result = server.search_stocks_by_genotype("tdTomato Foobar123zzz")
+    assert result["count"] == 0
+    assert "no_match_hint" in result
+    assert "tdt" in result["no_match_hint"].lower()
+
+
+def test_search_tool_no_hint_when_hits_found(monkeypatch):
+    from drosophila_stocks_mcp import server
+
+    monkeypatch.setattr(server, "_client", FlyBaseClient())
+    monkeypatch.setenv("FLYBASE_STOCKS_FILE", str(FIXTURE))
+    result = server.search_stocks_by_genotype("UAS-GFP")
+    assert result["count"] == 1
+    assert "no_match_hint" not in result
 
 
 def test_get_stock_by_fbst(client):

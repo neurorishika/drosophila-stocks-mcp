@@ -73,21 +73,39 @@ def search_stocks_by_genotype(
     """Search stocks whose genotype matches all whitespace-separated terms in `query`.
 
     Matching is case-insensitive substring AND-matching over the full genotype
-    string, so "UAS-GFP" or "attP2 mir" both work. Optionally restrict to one
-    center by code (e.g. "BDSC", "VDRC"). Returns up to `limit` records, each with
-    center, stock number, genotype, FlyBase report URL, and a deep `order_url`.
+    string, so "UAS-GFP" or "attP2 mir" both work. Terms of 3+ characters also fall
+    back to fuzzy substring matching against genotype tokens (in either direction),
+    so a term like "tdTomato" will still match a genotype that only spells it "tdT",
+    and "CsChrimson" will match one that only spells it "Chrimson" -- FlyBase
+    construct names abbreviate reporters/effectors inconsistently across releases
+    (tdT, mCh, GCaMP6 vs GCaMP6f, etc.), so if you get zero results for a well-known
+    reporter/effector, retry with a shorter/truncated form of the term; the
+    response's `no_match_hint` will suggest real tokens found in the dataset when
+    available. Optionally restrict to one center by code (e.g. "BDSC", "VDRC").
+    Returns up to `limit` records, each with center, stock number, genotype,
+    FlyBase report URL, and a deep `order_url`.
 
     Example: query="Sxl RNAi", center="VDRC".
     """
     limit = max(1, min(int(limit), 200))
     hits = _client.search_by_genotype(query, center=center, limit=limit)
-    return {
+    result = {
         "query": query,
         "center": center,
         "count": len(hits),
         "results": [h.to_dict() for h in hits],
         "note": _ORDER_NOTE,
     }
+    if not hits:
+        suggestions = _client.suggest_alternatives(query, center=center)
+        if suggestions:
+            result["no_match_hint"] = (
+                "No exact hits, but the dataset contains similar tokens that may be "
+                "abbreviated forms of your query terms: " + ", ".join(suggestions) + ". "
+                "FlyBase construct names truncate reporters/effectors inconsistently "
+                "(e.g. tdTomato -> tdT, mCherry -> mCh) -- try retrying with one of these."
+            )
+    return result
 
 
 @mcp.tool()
