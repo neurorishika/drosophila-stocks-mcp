@@ -4,9 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server that lets AI assistants query
 *Drosophila melanogaster* **stock centers** — Bloomington (BDSC), Kyoto/DGRC,
 Vienna (VDRC), Korea (KDRC), NIG-FLY, FlyORF, and the National Drosophila
 Species Stock Center (NDSSC) — by genotype or by gene, using
-[FlyBase](https://flybase.org)'s freely redistributable data. (Tsinghua/THFC
-is kept in the center registry for completeness but currently has no stocks in
-FlyBase's bulk file.)
+[FlyBase](https://flybase.org)'s freely redistributable data.
 
 FlyBase already integrates the stock *records* (genotype, stock number, holding
 center) for all of these collections. This server indexes that bulk data locally
