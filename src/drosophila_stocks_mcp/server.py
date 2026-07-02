@@ -1,7 +1,7 @@
 """Drosophila Stocks MCP server.
 
 Exposes tools that let an LLM query Drosophila melanogaster stock centers
-(BDSC, Kyoto/DGRC, VDRC, KDRC, NIG-FLY, FlyORF, NDSSC, THFC) by genotype or
+(BDSC, Kyoto/DGRC, VDRC, KDRC, NIG-FLY, FlyORF, NDSSC) by genotype or
 gene, backed by FlyBase's freely redistributable bulk stock and gene-synonym
 data, plus its REST API for gene summaries.
 

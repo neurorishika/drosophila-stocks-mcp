@@ -5,7 +5,7 @@
 name: drosophila-stocks-mcp
 description: >-
   Query Drosophila melanogaster stock centers (BDSC, Kyoto/DGRC, VDRC, KDRC,
-  NIG-FLY, FlyORF, THFC) by genotype or gene. Backed by FlyBase's freely
+  NIG-FLY, FlyORF, NDSSC) by genotype or gene. Backed by FlyBase's freely
   redistributable bulk stock data plus its REST API for gene resolution, and
   generates deep links into each center's ordering system.
 homepage: https://github.com/neurorishika/drosophila-stocks-mcp

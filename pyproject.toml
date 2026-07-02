@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "drosophila-stocks-mcp"
 version = "0.1.0"
-description = "MCP server to query Drosophila stock centers (BDSC, Kyoto, VDRC, KDRC, NIG, FlyORF, THFC) via FlyBase data."
+description = "MCP server to query Drosophila stock centers (BDSC, Kyoto, VDRC, KDRC, NIG, FlyORF, NDSSC) via FlyBase data."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

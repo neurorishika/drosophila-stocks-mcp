@@ -102,7 +102,7 @@ release's directory listing rather than guessed.
 - **Availability/price/shipping** are *not* in FlyBase. The `order_url` deep-links
   you to the center's own system to check and order. VDRC's link is a storefront
   search (not a direct product page) since its stock numbers aren't Magento
-  product IDs; KDRC, NIG-FLY, THFC, and NDSSC fall back to the center homepage.
+  product IDs; KDRC, NIG-FLY, and NDSSC fall back to the center homepage.
 
 ## Development
 

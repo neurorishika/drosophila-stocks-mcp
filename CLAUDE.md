@@ -6,7 +6,7 @@ before it is published to PyPI and submitted to the BioContextAI registry.**
 ## What this project is
 
 An MCP server that lets an LLM query *Drosophila melanogaster* stock centers
-(BDSC, Kyoto/DGRC, VDRC, KDRC, NIG-FLY, FlyORF, THFC) by genotype or gene. Data
+(BDSC, Kyoto/DGRC, VDRC, KDRC, NIG-FLY, FlyORF, NDSSC) by genotype or gene. Data
 comes from FlyBase's freely redistributable **bulk precomputed stock file**
 (the authoritative list of stocks + genotypes across all centers), plus FlyBase's
 **REST API** for resolving gene symbols to `FBgn` IDs. It generates deep links
@@ -107,7 +107,7 @@ stock (HTTP 200, correct page)**, especially:
   real query pattern.
 - **BDSC** `Home/Search?presearch={num}`, **Kyoto** `DB_NUM={num}`, **FlyORF**
   `?s={num}` — confirm or fix.
-- For centers with `order_url_template=None` (KDRC, NIG, THFC), see if a stable
+- For centers with `order_url_template=None` (KDRC, NIG, NDSSC), see if a stable
   deep-link pattern exists and add it; otherwise leave as homepage fallback.
 
 ---

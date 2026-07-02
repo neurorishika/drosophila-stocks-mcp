@@ -86,13 +86,6 @@ STOCK_CENTERS: dict[str, StockCenter] = {
         aliases=("flyorf", "orf"),
         order_url_template="https://flyorf.ch/index.php/?s={num}",
     ),
-    "THFC": StockCenter(
-        code="THFC",
-        name="Tsinghua Fly Center",
-        homepage="https://thfc.zzbd.org/en",
-        aliases=("thfc", "tsinghua"),
-        order_url_template=None,
-    ),
     "NDSSC": StockCenter(
         code="NDSSC",
         name="National Drosophila Species Stock Center (Cornell University)",
