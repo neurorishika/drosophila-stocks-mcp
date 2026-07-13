@@ -1,5 +1,7 @@
 # Drosophila Stocks MCP
 
+[![BioContextAI - Registry](https://img.shields.io/badge/Registry-package?style=flat&label=BioContextAI&labelColor=%23fff&color=%233555a1&link=https%3A%2F%2Fbiocontext.ai%2Fregistry)](https://biocontext.ai/registry/neurorishika/drosophila-stocks-mcp)
+
 An [MCP](https://modelcontextprotocol.io) server that lets AI assistants query
 *Drosophila melanogaster* **stock centers** — Bloomington (BDSC), Kyoto/DGRC,
 Vienna (VDRC), Korea (KDRC), NIG-FLY, FlyORF, and the National Drosophila
